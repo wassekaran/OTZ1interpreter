@@ -1,6 +1,12 @@
 #include "Interpreter.h"
 #include<iostream>
 
+Interpreter::Interpreter()
+{
+	globalSpace = new MemorySpace();
+	currentSpace = globalSpace;
+}
+
 Value * Interpreter::eval(Exp * exp)
 {
 	switch (exp->type)
@@ -28,6 +34,12 @@ Value * Interpreter::eval(Exp * exp)
 
 	case NODE_ARRAY_ELEMENT_EXP:
 		return eval(ARRAY_ELEMENT_EXP(exp));
+
+	case NODE_FUNCCALL_EXP:
+		return eval(FUNC_CALL_EXP(exp));
+
+	case NODE_VAR_EXP:
+		return eval(VAR_EXP(exp));
 
 	default:
 		std::cout << "What" << std::endl;
@@ -287,4 +299,168 @@ Value * Interpreter::eval(ArrayElementExp * exp)
 	delete index;
 
 	return ret;
+}
+
+Value * Interpreter::eval(FuncCallExp * exp)
+{
+	Function * func = (Function*)globalSpace->getMemoryChunk(exp->id);
+
+	currentSpace = new MemorySpace();
+	callstack.push(currentSpace);
+
+	for (unsigned int i = 0; i < exp->args.size(); i++)
+	{
+		Value * val = eval(exp->args.at(i));
+		currentSpace->addMemoryChunk(new Variable(func->args.at(i), val));
+	}
+
+	Value * val = nullptr;
+
+	try
+	{
+		for (unsigned int i = 0; i < func->body.size(); i++)
+		{
+			exec(func->body.at(i));
+		}
+	}
+	catch (Value * v)
+	{
+		val = v;
+	}
+
+	callstack.pop();
+
+	if (callstack.size() == 0)
+		currentSpace = globalSpace;
+	else
+		currentSpace = callstack.top();
+
+	if (val == nullptr)
+	{
+		std::cout << "Function did not return anything" << std::endl;
+	}
+
+	return val;
+}
+
+Value * Interpreter::eval(VarExp * exp)
+{
+	Variable * var = (Variable*) getMemoryChunk(exp->id);
+
+	return var->value;
+}
+
+void Interpreter::exec(Stmt * stmt)
+{
+	switch (stmt->type)
+	{
+	case NODE_FUNCDEF_STMT:
+		exec(FUNCDEF_STMT(stmt));
+		break;
+
+	case NODE_VARDEF_STMT:
+		exec(VARDEF_STMT(stmt));
+		break;
+
+	case NODE_VARASS_STMT:
+		exec(VARASS_STMT(stmt));
+		break;
+
+	case NODE_FUNCCALL_STMT:
+		exec(FUNCCALL_STMT(stmt));
+		break;
+
+	case NODE_IF_STMT:
+		exec(IF_STMT(stmt));
+		break;
+
+	case NODE_PRINT_STMT:
+		exec(PRINT_STMT(stmt));
+		break;
+
+	case NODE_RETURN_STMT:
+		exec(RETURN_STMT(stmt));
+		break;
+
+	default:
+		std::cout << "No way, stmt not?" << std::endl;
+	}
+}
+
+void Interpreter::exec(FuncDefStmt * stmt)
+{
+	globalSpace->addMemoryChunk(new Function(stmt->id, stmt->args, stmt->body));
+}
+
+void Interpreter::exec(VarDefStmt * stmt)
+{
+	Value * val = eval(stmt->exp);
+	currentSpace->addMemoryChunk(new Variable(stmt->id, val));
+}
+
+void Interpreter::exec(VarAssStmt * stmt)
+{
+	Variable * var = (Variable*) getMemoryChunk(stmt->id);
+
+	Value * val = eval(stmt->exp);
+	var->value = val;
+}
+
+void Interpreter::exec(FuncCallStmt * stmt)
+{
+	eval(stmt->funcall);
+}
+
+void Interpreter::exec(IfStmt * stmt)
+{
+	Value * cond = eval(stmt->cond);
+
+	if (cond->type != VALUE_BOOL)
+	{
+		std::cout << "Cond is not bool" << std::endl;
+	}
+
+	if (((BoolValue*)cond)->val)
+	{
+		for (unsigned int i = 0; i < stmt->body.size(); i++)
+		{
+			exec(stmt->body.at(i));
+		}
+	}
+}
+
+void Interpreter::exec(PrintStmt * stmt)
+{
+	Value * val = eval(stmt->exp);
+
+	if (val->type == VALUE_ARRAY)
+		std::cout << ((ArrayValue*)val) << std::endl;
+	else if (val->type == VALUE_BOOL)
+		std::cout << ((BoolValue*)val) << std::endl;
+	else if (val->type == VALUE_INTEGER)
+		std::cout << ((IntegerValue*)val) << std::endl;
+	else if (val->type == VALUE_STRING)
+		std::cout << ((StringValue*)val) << std::endl;
+	else
+		std::cout << "WAAAT" << std::endl;
+
+	delete val;
+}
+
+void Interpreter::exec(ReturnStmt * stmt)
+{
+	Value * val = eval(stmt->exp);
+
+	throw val;
+}
+
+MemoryChunk * Interpreter::getMemoryChunk(std::string id)
+{
+	MemoryChunk * mem = currentSpace->getMemoryChunk(id);
+	if (mem == nullptr)
+	{
+		return globalSpace->getMemoryChunk(id);
+	}
+
+	return mem;
 }

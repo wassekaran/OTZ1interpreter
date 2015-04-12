@@ -1,5 +1,6 @@
 #include "Parser.h"
 #include<iostream>
+#include<sstream>
 
 void Parser::match(std::string id)
 {
@@ -45,9 +46,9 @@ Parser::Parser(token_list * tokens)
 	nextToken();
 }
 
-void Parser::parse()
+stmt_list Parser::parse()
 {
-	
+	return parse_program();
 }
 
 // EXPRESSION PARSING //////////////////////
@@ -241,24 +242,7 @@ Exp * Parser::parse_atom()
 	{
 		nextToken();
 
-		std::vector<Exp*> expList;
-		Exp * exp = parse_exp();
-		if (exp != nullptr)
-		{
-			expList.push_back(exp);
-			while (lookahead.type == TOKEN_COMA)
-			{
-				nextToken();
-				exp = parse_exp();
-				
-				if (exp == nullptr)
-				{
-					std::cout << "Expression expected" << std::endl;
-				}
-
-				expList.push_back(exp);
-			}
-		}
+		exp_list expList = parse_exp_list();
 
 		match(TOKEN_RIGHT_SQBR);
 
@@ -270,6 +254,26 @@ Exp * Parser::parse_atom()
 		nextToken();
 		
 		result = new ValueExp(new StringValue(val));
+	}
+	else if (lookahead.type == TOKEN_IDENTIFIER)
+	{
+		std::string id = lookahead.value;
+		nextToken();
+
+		if (lookahead.type == TOKEN_LEFT_PAR)
+		{
+			nextToken();
+
+			result = parse_funccall_exp(id);
+		}
+		else
+		{
+			if (scopeTree.reference("var " + id) == nullptr)
+			{
+				std::cout << "Undefined variable" << std::endl;
+			}
+			result = new VarExp("var " + id);
+		}
 	}
 
 	if (result != nullptr)
@@ -310,4 +314,329 @@ Exp * Parser::parse_atom()
 	}
 
 	return nullptr;
+}
+
+exp_list Parser::parse_exp_list()
+{
+	exp_list expList;
+	Exp * exp = parse_exp();
+	if (exp != nullptr)
+	{
+		expList.push_back(exp);
+		while (lookahead.type == TOKEN_COMA)
+		{
+			nextToken();
+			exp = parse_exp();
+
+			if (exp == nullptr)
+			{
+				std::cout << "Expression expected" << std::endl;
+			}
+
+			expList.push_back(exp);
+		}
+	}
+
+	return expList;
+}
+
+Exp * Parser::parse_funccall_exp(std::string id)
+{
+	exp_list args;
+
+	Exp * exp = parse_exp();
+	if (exp != nullptr)
+	{
+		args.push_back(exp);
+
+		while (lookahead.type == TOKEN_COMA)
+		{
+			nextToken();
+
+			exp = parse_exp();
+			if (exp == nullptr)
+			{
+				std::cout << "Expression expected" << std::endl;
+			}
+
+			args.push_back(exp);
+		}
+	}
+
+	match(TOKEN_RIGHT_PAR);
+
+	std::ostringstream oss;
+	oss << args.size();
+
+	if (scopeTree.reference("func " + id + " " + oss.str()) == nullptr)
+	{
+		std::cout << "Func not defined" << std::endl;
+	}
+
+	return new FuncCallExp(id, args);
+}
+
+// STATEMENT PARSING /////////////////////////////
+/*
+Grammar:
+Program -> [{ Statement }]
+Stmt -> FuncDefStmt | ImportStmt | InnerStmt
+FuncDefStmt -> 'func' IDENTIFIER '(' ArgList ')' InnerStmtBlock
+ArgList -> [ IDENTIFIER [{ ',' IDENTIFIER }]]
+InnerStmtBlock -> InnerStmt | ( '{' [{ InnerStmt }] '}' )
+ImportStmt -> 'needs' STRING
+InnerStmt -> FuncCallStmt | VarAssStmt | IfStmt | WhileStmt | ForStmt
+FuncCallStmt -> IDENTIFIER '(' ExpList ')'
+VarAssStmt -> IDENTIFIER [ '[' Exp ']' ] '=' Exp
+IfStmt -> 'if' Exp InnerStmtBlock [{ 'elif' Exp InnerStmtBlock }] [ 'else' InnerStmtBlock ]
+WhileStmt -> 'while' Exp InnerStmtBlock
+ForStmt -> 'for' IDENTIFIER 'in' Exp InnerStmtBlock
+*/
+
+stmt_list Parser::parse_program()
+{
+	stmt_list list;
+	Stmt * stmt = nullptr;
+
+	while ((stmt = parse_stmt()) != nullptr)
+	{
+		list.push_back(stmt);
+	}
+
+	return list;
+}
+
+Stmt * Parser::parse_stmt()
+{
+	if (lookahead.type == TOKEN_NEEDS)
+	{
+		nextToken();
+
+		return parse_import_stmt();
+	}
+	else if (lookahead.type == TOKEN_FUNC)
+	{
+		nextToken();
+
+		return parse_funcdef_stmt();
+	}
+	
+	return parse_inner_stmt();
+}
+
+Stmt * Parser::parse_funcdef_stmt()
+{
+	if (lookahead.type == TOKEN_IDENTIFIER)
+	{
+		std::string id = lookahead.value;
+		nextToken();
+
+		match(TOKEN_LEFT_PAR);
+
+		std::vector<std::string> args;
+
+		if (lookahead.type == TOKEN_IDENTIFIER)
+		{
+			args.push_back(lookahead.value);
+
+			nextToken();
+
+			while (lookahead.type == TOKEN_COMA)
+			{
+				nextToken();
+
+				if (lookahead.type != TOKEN_IDENTIFIER)
+				{
+					std::cout << "Identifier expected" << std::endl;
+				}
+
+				args.push_back(lookahead.value);
+				nextToken();
+			}
+		}
+
+		match(TOKEN_RIGHT_PAR);
+
+		std::ostringstream oss;
+		oss << args.size();
+
+		scopeTree.declare("func " + id + " " + oss.str());
+
+		stmt_list body = parse_inner_stmt_block();
+
+		return new FuncDefStmt(id, args, body);
+	}
+	else
+	{
+		std::cout << "Ident expected" << std::endl;
+	}
+
+	return nullptr;
+}
+
+Stmt * Parser::parse_import_stmt()
+{
+	std::cout << "Import not yet" << std::endl;
+	return nullptr;
+}
+
+Stmt * Parser::parse_inner_stmt()
+{
+	if (lookahead.type == TOKEN_IDENTIFIER)
+	{
+		std::string id = lookahead.value;
+		nextToken();
+
+		if (lookahead.type == TOKEN_LEFT_PAR)
+		{
+			nextToken();
+			return parse_funccall_stmt(id);
+		}
+
+		return parse_varass_stmt(id);
+	}
+	else if (lookahead.type == TOKEN_IF)
+	{
+		nextToken();
+
+		return parse_if_stmt();
+	}
+	else if (lookahead.type == TOKEN_WHILE)
+	{
+		nextToken();
+
+		return parse_while_stmt();
+	}
+	else if (lookahead.type == TOKEN_FOR)
+	{
+		nextToken();
+
+		return parse_for_stmt();
+	}
+	else if (lookahead.type == TOKEN_PRINT)
+	{
+		nextToken();
+
+		return parse_print_stmt();
+	}
+	else if (lookahead.type == TOKEN_RETURN)
+	{
+		nextToken();
+
+		return parse_return_stmt();
+	}
+
+	return nullptr;
+}
+
+Stmt * Parser::parse_varass_stmt(std::string id)
+{
+	match(TOKEN_ASSIGN);
+
+	Exp * exp = parse_exp();
+
+	if (exp == nullptr)
+	{
+		std::cout << "Expression expected" << std::endl;
+	}
+
+	if (scopeTree.reference("var " + id) == nullptr)
+	{
+		scopeTree.declare("var " + id);
+		return new VarDefStmt("var " + id, exp);
+	}
+
+	return new VarAssStmt("var " + id, exp);
+}
+
+Stmt * Parser::parse_funccall_stmt(std::string id)
+{
+	Exp * exp = parse_funccall_exp(id);
+
+	return new FuncCallStmt(exp);
+}
+
+Stmt * Parser::parse_if_stmt()
+{
+	Exp * cond = parse_exp();
+
+	if (cond == nullptr)
+	{
+		std::cout << "Condition expected" << std::endl;
+	}
+
+	stmt_list body = parse_inner_stmt_block();
+
+	return new IfStmt(cond, body);
+}
+
+Stmt * Parser::parse_while_stmt()
+{
+	return nullptr;
+}
+
+Stmt * Parser::parse_for_stmt()
+{
+	return nullptr;
+}
+
+Stmt * Parser::parse_print_stmt()
+{
+	Exp * exp = parse_exp();
+
+	if (exp == nullptr)
+	{
+		std::cout << "Expression expected" << std::endl;
+	}
+
+	return new PrintStmt(exp);
+}
+
+Stmt * Parser::parse_return_stmt()
+{
+	Exp * exp = parse_exp();
+
+	if (exp == nullptr)
+	{
+		std::cout << "Expression expected" << std::endl;
+	}
+
+	return new ReturnStmt(exp);
+}
+
+stmt_list Parser::parse_inner_stmt_block()
+{
+	scopeTree.push();
+
+	if (lookahead.type == TOKEN_BEGIN)
+	{
+		nextToken();
+
+		stmt_list list;
+
+		Stmt * stmt = nullptr;
+		while ((stmt = parse_stmt()) != nullptr)
+		{
+			list.push_back(stmt);
+		}
+
+		match(TOKEN_END);
+
+		scopeTree.pop();
+
+		return list;
+	}
+
+	Stmt * stmt = parse_stmt();
+	if (stmt == nullptr)
+	{
+		std::cout << "Statement expected" << std::endl;
+	}
+
+	stmt_list list;
+	list.push_back(stmt);
+
+	scopeTree.pop();
+
+	return list;
 }

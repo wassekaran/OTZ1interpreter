@@ -110,6 +110,16 @@ void Lexer::tokenizeLine(std::string line, token_list * list)
 			i++;
 			break;
 
+		case '{':
+			list->push_back(Token(TOKEN_BEGIN));
+			i++;
+			break;
+
+		case '}':
+			list->push_back(Token(TOKEN_END));
+			i++;
+			break;
+
 		case '\'':
 		{
 			std::string val = "";
@@ -219,6 +229,20 @@ void Lexer::tokenizeLine(std::string line, token_list * list)
 					list->push_back(Token(TOKEN_TRUE));
 				else if (id == "false")
 					list->push_back(Token(TOKEN_FALSE));
+				else if (id == "func")
+					list->push_back(Token(TOKEN_FUNC));
+				else if (id == "needs")
+					list->push_back(Token(TOKEN_NEEDS));
+				else if (id == "if")
+					list->push_back(Token(TOKEN_IF));
+				else if (id == "while")
+					list->push_back(Token(TOKEN_WHILE));
+				else if (id == "for")
+					list->push_back(Token(TOKEN_FOR));
+				else if (id == "print")
+					list->push_back(Token(TOKEN_PRINT));
+				else if (id == "return")
+					list->push_back(Token(TOKEN_RETURN));
 				else
 					list->push_back(Token(TOKEN_IDENTIFIER, id));
 			}

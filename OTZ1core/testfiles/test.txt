@@ -1,1 +1,7 @@
-('hello ' + 'there')[9]
+func foo(x)
+{
+    print x
+}
+
+foo(2)
+foo(true)

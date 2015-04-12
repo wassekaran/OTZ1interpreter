@@ -17,38 +17,13 @@ int main()
 
 	Parser parser(tokens);
 
-	Exp * exp = parser.parse_exp();
-	
+	stmt_list prg = parser.parse();
+
 	Interpreter * interpreter = new Interpreter();
 
-	if (exp == nullptr)
+	for (unsigned int i = 0; i < prg.size(); i++)
 	{
-		std::cout << "No expression found" << std::endl;
-	}
-	else
-	{
-		std::cout << "An expression is found" << std::endl;
-		Value * val = interpreter->eval(exp);
-
-		if (val->type == VALUE_BOOL)
-		{
-			std::cout << "Boolean value = " << ((BoolValue*)val) << std::endl;
-		}
-		else if (val->type == VALUE_INTEGER)
-		{
-			std::cout << "Integer value = " << ((IntegerValue*)val) << std::endl;
-		}
-		else if (val->type == VALUE_ARRAY)
-		{
-			std::cout << "Array value = " << ((ArrayValue*)val) << std::endl;
-		}
-		else
-		{
-			std::cout << "String value = " << ((StringValue*)val) << std::endl;
-		}
-
-		delete val;
-		delete exp;
+		interpreter->exec(prg.at(i));
 	}
 
 #ifdef __DEBUG_MEM_LEAK__

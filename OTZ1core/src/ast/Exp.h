@@ -5,6 +5,7 @@
 #include "../lexing/Token.h"
 #include "../visitor/Value.h"
 #include<iostream>
+#include<vector>
 
 #ifdef __DEBUG_MEM_LEAK__
 extern unsigned int _CREATES;
@@ -27,6 +28,8 @@ struct Exp : public Node
 #endif
 	}
 };
+
+typedef std::vector<Exp*> exp_list;
 
 struct TernaryExp : public Exp
 {
@@ -136,9 +139,9 @@ struct ValueExp : public Exp
 
 struct ArrayExp : public Exp
 {
-	std::vector<Exp*> expList;
+	exp_list expList;
 
-	ArrayExp(std::vector<Exp*> expList) : expList(expList)
+	ArrayExp(exp_list expList) : expList(expList)
 	{
 		this->type = NODE_ARRAY_EXP;
 	}
@@ -166,5 +169,26 @@ struct ArrayElementExp : public Exp
 	{
 		delete arr;
 		delete index;
+	}
+};
+
+struct VarExp : public Exp
+{
+	std::string id;
+
+	VarExp(std::string id) : id(id)
+	{
+		this->type = NODE_VAR_EXP;
+	}
+};
+
+struct FuncCallExp : public Exp
+{
+	std::string id;
+	exp_list args;
+
+	FuncCallExp(std::string id, exp_list args) : id(id), args(args)
+	{
+		this->type = NODE_FUNCCALL_EXP;
 	}
 };
