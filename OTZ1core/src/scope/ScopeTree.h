@@ -34,4 +34,9 @@ public:
 	{
 		currentScope->declare(id);
 	}
+
+	inline void dump()
+	{
+		currentScope->dump();
+	}
 };

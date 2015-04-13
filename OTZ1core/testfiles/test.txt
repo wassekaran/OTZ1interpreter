@@ -1,7 +1,6 @@
-func foo(x)
+func foo()
 {
-    print x
+    print 'hi'
 }
 
-foo(2)
-foo(true)
+foo()

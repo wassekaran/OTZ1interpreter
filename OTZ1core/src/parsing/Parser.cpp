@@ -371,6 +371,8 @@ Exp * Parser::parse_funccall_exp(std::string id)
 	if (scopeTree.reference("func " + id + " " + oss.str()) == nullptr)
 	{
 		std::cout << "Func not defined" << std::endl;
+		scopeTree.dump();
+		std::cout << "-----------" << std::endl;
 	}
 
 	return new FuncCallExp(id, args);
@@ -462,9 +464,16 @@ Stmt * Parser::parse_funcdef_stmt()
 
 		scopeTree.declare("func " + id + " " + oss.str());
 
-		stmt_list body = parse_inner_stmt_block();
+		scopeTree.push();
+		for (unsigned int i = 0; i < args.size(); i++)
+		{
+			scopeTree.declare("var " + args.at(i));
+		}
 
-		return new FuncDefStmt(id, args, body);
+		stmt_list body = parse_inner_stmt_block();
+		scopeTree.pop();
+
+		return new FuncDefStmt("func " + id + " " + oss.str(), args, body);
 	}
 	else
 	{

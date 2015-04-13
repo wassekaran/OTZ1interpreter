@@ -390,6 +390,7 @@ void Interpreter::exec(Stmt * stmt)
 void Interpreter::exec(FuncDefStmt * stmt)
 {
 	globalSpace->addMemoryChunk(new Function(stmt->id, stmt->args, stmt->body));
+	std::cout << "Size: " << stmt->body.size() << std::endl;
 }
 
 void Interpreter::exec(VarDefStmt * stmt)

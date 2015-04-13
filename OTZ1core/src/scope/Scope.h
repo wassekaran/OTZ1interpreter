@@ -47,4 +47,14 @@ public:
 	}
 
 	inline Scope * getParent() { return parent; }
+
+	void dump()
+	{
+		for (scope_entry_map::iterator iterator = entries.begin(); iterator != entries.end(); iterator++) {
+			std::cout << iterator->second->id << std::endl;
+		}
+
+		if (parent != nullptr)
+			parent->dump();
+	}
 };
