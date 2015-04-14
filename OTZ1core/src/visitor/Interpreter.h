@@ -36,6 +36,7 @@ private:
 	void exec(IfStmt * stmt);
 	void exec(PrintStmt * stmt);
 	void exec(ReturnStmt * stmt);
+	void exec(WhileStmt * stmt);
 
 	MemoryChunk * getMemoryChunk(std::string);
 };

@@ -56,10 +56,12 @@ Value * Interpreter::eval(TernaryExp * exp)
 	{
 		if (((BoolValue*)cond)->val)
 		{
+			delete cond;
 			return eval(exp->left);
 		}
 		else
 		{
+			delete cond;
 			return eval(exp->right);
 		}
 	}
@@ -83,11 +85,11 @@ Value * Interpreter::eval(BoolExp * exp)
 			}
 			else
 			{
-				delete left;
-
 				Value * right = eval(exp->right);
 				if (right->type == VALUE_BOOL)
 				{
+					delete left;
+					delete right;
 					return new BoolValue(((BoolValue*) right)->val);
 				}
 				std::cout << "OMGG" << std::endl;
@@ -203,7 +205,7 @@ Value * Interpreter::eval(BinaryTerm * exp)
 		Value * result = nullptr;
 		if (exp->op == TOKEN_STAR)
 			result = new IntegerValue(((IntegerValue*)left)->val * ((IntegerValue*)right)->val);
-		else if (exp->op == TOKEN_STAR)
+		else if (exp->op == TOKEN_SLASH)
 			result = new IntegerValue(((IntegerValue*)left)->val / ((IntegerValue*)right)->val);
 		else
 			result = new IntegerValue(((IntegerValue*)left)->val % ((IntegerValue*)right)->val);
@@ -232,6 +234,8 @@ Value * Interpreter::eval(ValueExp * exp)
 	{
 		return new StringValue(((StringValue*)exp->val)->val);
 	}
+
+	return nullptr;
 }
 
 Value * Interpreter::eval(ArrayExp * exp)
@@ -292,11 +296,7 @@ Value * Interpreter::eval(ArrayElementExp * exp)
 	else if (val->type == VALUE_STRING)
 	{
 		ret = new StringValue(*(StringValue*)val);
-		delete val;
 	}
-
-	delete arr;
-	delete index;
 
 	return ret;
 }
@@ -311,7 +311,7 @@ Value * Interpreter::eval(FuncCallExp * exp)
 	for (unsigned int i = 0; i < exp->args.size(); i++)
 	{
 		Value * val = eval(exp->args.at(i));
-		currentSpace->addMemoryChunk(new Variable(func->args.at(i), val));
+		currentSpace->addMemoryChunk(new Variable("var " + func->args.at(i), val));
 	}
 
 	Value * val = nullptr;
@@ -335,10 +335,10 @@ Value * Interpreter::eval(FuncCallExp * exp)
 	else
 		currentSpace = callstack.top();
 
-	if (val == nullptr)
+	/*if (val == nullptr)
 	{
 		std::cout << "Function did not return anything" << std::endl;
-	}
+	}*/
 
 	return val;
 }
@@ -347,7 +347,26 @@ Value * Interpreter::eval(VarExp * exp)
 {
 	Variable * var = (Variable*) getMemoryChunk(exp->id);
 
-	return var->value;
+	Value * ret = nullptr;
+
+	if (var->value->type == VALUE_INTEGER)
+	{
+		ret = new IntegerValue(*(IntegerValue*)var->value);
+	}
+	else if (var->value->type == VALUE_BOOL)
+	{
+		ret = new BoolValue(*(BoolValue*)var->value);
+	}
+	else if (var->value->type == VALUE_ARRAY)
+	{
+		ret = new ArrayValue(*(ArrayValue*)var->value);
+	}
+	else if (var->value->type == VALUE_STRING)
+	{
+		ret = new StringValue(*(StringValue*)var->value);
+	}
+
+	return ret;
 }
 
 void Interpreter::exec(Stmt * stmt)
@@ -382,6 +401,10 @@ void Interpreter::exec(Stmt * stmt)
 		exec(RETURN_STMT(stmt));
 		break;
 
+	case NODE_WHILE_STMT:
+		exec(WHILE_STMT(stmt));
+		break;
+
 	default:
 		std::cout << "No way, stmt not?" << std::endl;
 	}
@@ -390,7 +413,6 @@ void Interpreter::exec(Stmt * stmt)
 void Interpreter::exec(FuncDefStmt * stmt)
 {
 	globalSpace->addMemoryChunk(new Function(stmt->id, stmt->args, stmt->body));
-	std::cout << "Size: " << stmt->body.size() << std::endl;
 }
 
 void Interpreter::exec(VarDefStmt * stmt)
@@ -444,8 +466,6 @@ void Interpreter::exec(PrintStmt * stmt)
 		std::cout << ((StringValue*)val) << std::endl;
 	else
 		std::cout << "WAAAT" << std::endl;
-
-	delete val;
 }
 
 void Interpreter::exec(ReturnStmt * stmt)
@@ -453,6 +473,31 @@ void Interpreter::exec(ReturnStmt * stmt)
 	Value * val = eval(stmt->exp);
 
 	throw val;
+}
+
+void Interpreter::exec(WhileStmt * stmt)
+{
+	Value * val = nullptr;
+	while (true)
+	{
+		val = eval(stmt->cond);
+		if (val->type != VALUE_BOOL)
+		{
+			std::cout << "While not condition" << std::endl;
+		}
+
+		if (((BoolValue*)val)->val)
+		{
+			for (unsigned int i = 0; i < stmt->body.size(); i++)
+			{
+				exec(stmt->body.at(i));
+			}
+		}
+		else
+		{
+			return;
+		}
+	}
 }
 
 MemoryChunk * Interpreter::getMemoryChunk(std::string id)

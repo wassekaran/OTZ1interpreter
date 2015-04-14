@@ -375,7 +375,7 @@ Exp * Parser::parse_funccall_exp(std::string id)
 		std::cout << "-----------" << std::endl;
 	}
 
-	return new FuncCallExp(id, args);
+	return new FuncCallExp("func " + id + " " + oss.str(), args);
 }
 
 // STATEMENT PARSING /////////////////////////////
@@ -581,7 +581,16 @@ Stmt * Parser::parse_if_stmt()
 
 Stmt * Parser::parse_while_stmt()
 {
-	return nullptr;
+	Exp * cond = parse_exp();
+
+	if (cond == nullptr)
+	{
+		std::cout << "Condition expected" << std::endl;
+	}
+
+	stmt_list body = parse_inner_stmt_block();
+
+	return new WhileStmt(cond, body);
 }
 
 Stmt * Parser::parse_for_stmt()

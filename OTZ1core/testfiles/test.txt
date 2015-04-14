@@ -1,6 +1,26 @@
-func foo()
-{
-    print 'hi'
-}
+i = 3
+j = 3
+has = false
 
-foo()
+print 2
+
+while i < 10000
+{
+     j = 3
+     has = false
+     while j <= i / 2
+     {
+          if i % j == 0
+          {
+              has = true
+          }
+          j = j+2
+     }
+
+     if has == false
+     {
+          print i
+     }     
+
+     i = i+2
+}

@@ -128,3 +128,19 @@ struct ReturnStmt : public Stmt
 		delete exp;
 	}
 };
+
+struct WhileStmt : public Stmt
+{
+	Exp * cond;
+	stmt_list body;
+
+	WhileStmt(Exp * cond, stmt_list body) : cond(cond), body(body)
+	{
+		this->type = NODE_WHILE_STMT;
+	}
+
+	~WhileStmt()
+	{
+		delete cond;
+	}
+};
